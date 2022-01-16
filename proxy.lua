@@ -95,8 +95,9 @@ end
 
 local function getEncoded(data)
     local deflated = ld:CompressZlib(data)
-    local encoded = base64.encode(deflated)
-    return table.unpack({encoded, #deflated})
+    --local encoded = base64.encode(deflated)
+    return deflated
+    --return table.unpack({encoded, #deflated})
 end
 
 local function sendEncodedData(data, size)
@@ -106,28 +107,32 @@ local function sendEncodedData(data, size)
     setStatus("SENDING " .. tostring(size))
     print("status: SENDING")
     --local sizeBytes = getSizeBytes(#data)
+    slot = 1
     while sent < #data do
-        local chunk = data:sub(sent + 1, sent + 32)
+        local chunk = data:sub(sent + 1, sent + 24)
+        --local chunk = data:sub(sent + 1, sent + 32)
+        local encodedChunk = base64.encode(chunk)
         slot = slot + 1
         if slot > chestSize then
             slot = 2
         end
-        writeDataToChest(chunk, slot)
+        writeDataToChest(encodedChunk, slot)
         sent = sent + #chunk
-        print(tostring(sent) .. " of " .. tostring(#data))
+        print(tostring(sent) .. " of " .. tostring(size))
     end
-    setStatus("DONE" .. tostring(size))
+    setStatus("DONE " .. tostring(size))
     print("Done")
 end
 
 function sendPage(url)
     local page = getURL(url)
 
-    local encoded, size = getEncoded(page)
+    --local encoded, size = getEncoded(page)
+    local data = getEncoded(page)
 
-    print("Got page, sending encoded data")
+    print("Got page, sending compressed data")
 
-    sendEncodedData(encoded, size)
+    sendEncodedData(data, #data)
 end
 
 local url = ""

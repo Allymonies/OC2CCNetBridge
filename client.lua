@@ -45,14 +45,14 @@ function getData(client)
             inv:dropInto(0, 1, "front")
             --local itemName = json.decode(itemNameJson)["text"]
             local itemName = string.sub(itemNameJson, 10, -3)    
-            if itemName == "DONE" then
+            if string.sub(itemName, 1, 4) == "DONE" then
                 while inv:takeFrom(0, 1, "front") == 0 do end
                 print("Request finished!")
                 inv:drop(1, "up")
                 done = true
                 break
             else
-                if itemName ~= "SENDING" then
+                if string.sub(itemName, 1, 7) ~= "SENDING" then
                     print("Got unusual item name " .. itemName)
                 end
                 while inv:takeFrom(slot, 1, "front") == 0 do end
