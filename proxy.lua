@@ -5,12 +5,12 @@ disk drive is on top
 --]]
 if not fs.exists("LibDeflate.lua") then
     print("LibDeflate not found, downloading...")
-    shell.run("wget https://github.com/SafeteeWoW/LibDeflate/raw/main/LibDeflate.lua")
+    shell.run("wget https://raw.githubusercontent.com/Allymonies/OC2CCNetBridge/main/LibDeflate.lua")
 end
 
 if not fs.exists("base64.lua") then
     print("base64 not found, downloading...")
-    shell.run("wget https://raw.githubusercontent.com/iskolbin/lbase64/master/base64.lua")
+    shell.run("wget https://raw.githubusercontent.com/Allymonies/OC2CCNetBridge/main/base64.lua")
 end
 
 local ld = require("LibDeflate")
@@ -25,6 +25,16 @@ local inputChest = peripheral.wrap("minecraft:chest_11")
 
 local chestSize = 27
 local statusActive = false
+
+function getSizeBytes(size)
+    local bytes = ""
+    for pos=1, 8 do
+        local mask = bit.blshift(1, pos * 8) - 1
+        local byte = bit.blogic_rshift(bit.band(size, mask), (pos-1) * 8)
+        bytes = bytes .. string.char(byte)
+    end
+    return bytes
+end
 
 local function getDisk()
     local availableSlot = nil
@@ -86,14 +96,16 @@ end
 local function getEncoded(data)
     local deflated = ld:CompressZlib(data)
     local encoded = base64.encode(deflated)
-    return encoded
+    return table.unpack({encoded, #deflated})
 end
 
-local function sendEncodedData(data)
+local function sendEncodedData(data, size)
     local sent = 0
-    setStatus("SENDING")
+    --local sizeBytes = getSizeBytes(#data)
+    --local encodedSizeBytes = base64.encode(sizeBytes)
+    setStatus("SENDING " .. tostring(size))
     print("status: SENDING")
-    local slot = 1
+    --local sizeBytes = getSizeBytes(#data)
     while sent < #data do
         local chunk = data:sub(sent + 1, sent + 32)
         slot = slot + 1
@@ -104,18 +116,18 @@ local function sendEncodedData(data)
         sent = sent + #chunk
         print(tostring(sent) .. " of " .. tostring(#data))
     end
-    setStatus("DONE")
+    setStatus("DONE" .. tostring(size))
     print("Done")
 end
 
 function sendPage(url)
     local page = getURL(url)
 
-    local encoded = getEncoded(page)
+    local encoded, size = getEncoded(page)
 
     print("Got page, sending encoded data")
 
-    sendEncodedData(encoded)
+    sendEncodedData(encoded, size)
 end
 
 local url = ""

@@ -8,9 +8,10 @@ local time = require("posix.time")
 local robot = device:find("robot")
 local inv = device:find("inventory_operations")
 
-function getData()
+function getData(client)
     local fileData = ""
     local ready = false
+    local dataLength = 0
     while not ready do
         time.nanosleep({tv_sec=0,tv_nsec=150*1000*1000})
         while inv:takeFrom(0, 1, "front") == 0 do end
@@ -18,16 +19,23 @@ function getData()
         if item["tag"] ~= nil and item["tag"]["display"] ~= nil and item["tag"]["display"]["Name"] ~= nil then
             local itemNameJson = item["tag"]["display"]["Name"]
             local itemName = string.sub(itemNameJson, 10, -3)    
-            if itemName == "SENDING" or itemName == "DONE" then
+            if string.sub(itemName, 1, 7) == "SENDING" then
                 ready = true
+                dataLength = tonumber(string.sub(itemName, 9))
+            elseif string.sub(itemName, 1, 4) == "DONE" then
+                ready = true
+                dataLength = tonumber(string.sub(itemName, 6))
             end
         end
         inv:dropInto(0, 1, "front")
     end
-
+    print("Got data length " .. tostring(dataLength))
+    client:send("Content-Length: " .. dataLength .. "\r\n")
+    client:send("\r\n")
     local slot = 1
     local chestSize = 27
     local done = false
+    local progress = 0
 
     while not done do
         if inv:takeFrom(slot, 1, "front") == 0 then
@@ -56,7 +64,10 @@ function getData()
         local itemName = string.sub(itemNameJson, 10, -3)
         inv:drop(1, "up")
         local data = base64.decode(itemName)
-        fileData = fileData .. data
+        progress = progress + #data
+        print("Got " .. tostring(progress) .. " of " .. tostring(dataLength))
+        client:send(data)
+        --fileData = fileData .. data
 
         slot = slot + 1
         if slot >= chestSize then
@@ -64,8 +75,9 @@ function getData()
         end
     end
 
-    local output = ld:DecompressZlib(fileData)
-    return output
+    --local output = ld:DecompressZlib(fileData)
+    --return output
+    return dataLength
     --[[local file = io.open("output.txt", "wb")
     file:write(output)
     io.flush()
@@ -134,14 +146,13 @@ while true do
         if host and path then
             print("Received request for " .. host .. path)
         end
-        requestURL(host .. path)
-        data = getData()
         client:send("HTTP/1.1 200 OK\r\n")
         client:send("Server: OC2CCNetBridge\r\n")
         client:send("Content-Type: text/html\r\n")
-        client:send("Content-Length: " .. #data .. "\r\n")
-        client:send("\r\n")
-        client:send(data)
+        client:send("Content-Encoding: deflate\r\n")
+        requestURL(host .. path)
+        data = getData(client)
+        --client:send(data)
     end
     client:close()
 end
